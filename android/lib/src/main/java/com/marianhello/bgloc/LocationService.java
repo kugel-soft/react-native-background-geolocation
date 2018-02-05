@@ -9,6 +9,7 @@ This is a new class
 
 package com.marianhello.bgloc;
 
+import android.Manifest;
 import android.accounts.Account;
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -17,9 +18,11 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.PackageManager;
 import android.database.SQLException;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
+import android.location.LocationManager;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.AsyncTask;
@@ -32,6 +35,8 @@ import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
 import android.os.RemoteException;
+import android.provider.Settings;
+import android.support.v4.app.ActivityCompat;
 import android.support.v4.app.NotificationCompat;
 
 import com.marianhello.bgloc.data.BackgroundLocation;
@@ -182,7 +187,12 @@ public class LocationService extends Service {
         syncAccount = AccountHelper.CreateSyncAccount(this,
                 AuthenticatorService.getAccount(getStringResource(Config.ACCOUNT_TYPE_RESOURCE)));
 
+
         registerReceiver(connectivityChangeReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
+        IntentFilter iFilter = new IntentFilter();
+        iFilter.addAction(LocationManager.PROVIDERS_CHANGED_ACTION);
+        iFilter.addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED);
+        registerReceiver(gpsReceiver, iFilter);
     }
 
     @Override
@@ -195,6 +205,7 @@ public class LocationService extends Service {
             handlerThread.quit(); //sorry
         }
         unregisterReceiver(connectivityChangeReceiver);
+        unregisterReceiver(gpsReceiver);
 
         isRunning = false;
         super.onDestroy();
@@ -274,6 +285,8 @@ public class LocationService extends Service {
 
         provider.startRecording();
         isRunning = true;
+
+        gpsReceiver.onReceive(this, new Intent(LocationManager.PROVIDERS_CHANGED_ACTION));
 
         //We want this service to continue running until it is explicitly stopped
         return START_STICKY;
@@ -508,4 +521,64 @@ public class LocationService extends Service {
     public static boolean isRunning() {
         return LocationService.isRunning;
     }
+
+    private BroadcastReceiver gpsReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+        if (intent.getAction().matches(LocationManager.PROVIDERS_CHANGED_ACTION) || intent.getAction().matches(Intent.ACTION_AIRPLANE_MODE_CHANGED)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+                boolean enabled = true;
+                int mode = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.LOCATION_MODE, Settings.Secure.LOCATION_MODE_OFF);
+                if (mode == Settings.Secure.LOCATION_MODE_OFF) {
+                    enabled = false;
+                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    LocationManager lm = (LocationManager)context.getSystemService(Context.LOCATION_SERVICE);
+                    boolean gpsProviderEnabled = lm.isProviderEnabled(LocationManager.GPS_PROVIDER);
+                    boolean locationEnabled = false;
+
+                    try {
+                        locationEnabled = Settings.Secure.getInt(context.getContentResolver(), Settings.Secure.LOCATION_MODE) != Settings.Secure.LOCATION_MODE_OFF;
+                    } catch (Settings.SettingNotFoundException e) {
+                        e.printStackTrace();
+                    }
+
+                    boolean coarsePermissionCheck = (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+                    boolean finePermissionCheck = (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED);
+
+                    enabled = gpsProviderEnabled && locationEnabled && (coarsePermissionCheck || finePermissionCheck);
+                }
+                if (enabled && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                    boolean airPlaneMode = Settings.Global.getInt(context.getContentResolver(), Settings.Global.AIRPLANE_MODE_ON, 0) != 0;
+                    if (airPlaneMode) {
+                        enabled = false;
+                    }
+                }
+                log.info("gpsReceiver: enabled=" + enabled);
+                if (!enabled) {
+                    BackgroundLocation l = new BackgroundLocation();
+                    l.setAccuracy(0);
+                    l.setAltitude(0);
+                    l.setBearing(0);
+                    l.setElapsedRealtimeNanos(System.nanoTime());
+                    l.setExtras(null);
+                    l.setLatitude(-99);
+                    l.setLongitude(-999);
+                    l.setLocationProvider(0);
+                    l.setProvider("Authorization event listener");
+                    l.setRadius(0);
+                    l.setSpeed(0);
+                    l.setTime(System.currentTimeMillis());
+                    l.setValid(true);
+
+                    log.info("gpsReceiver: sending PROVIDERS_CHANGED_ACTION location");
+
+                    handleLocation(l);
+                }
+            } else {
+                log.warn("Version not supported");
+            }
+        }
+        }
+    };
 }
