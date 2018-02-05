@@ -142,28 +142,29 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements Uploadin
     }
 
     private boolean uploadLocations(File file, String url, HashMap httpHeaders) {
+        /*
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext());
         builder.setOngoing(true);
         builder.setContentTitle("Syncing locations");
         builder.setContentText("Sync in progress");
         builder.setSmallIcon(android.R.drawable.ic_dialog_info);
         notifyManager.notify(NOTIFICATION_ID, builder.build());
-
+        */
         try {
             int responseCode = HttpPostService.postFile(url, file, httpHeaders, this);
             if (responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED) {
-                builder.setContentText("Sync completed");
+                //builder.setContentText("Sync completed");
             } else {
-                builder.setContentText("Sync failed due server error");
+                //builder.setContentText("Sync failed due server error");
             }
 
             return responseCode == HttpURLConnection.HTTP_OK || responseCode == HttpURLConnection.HTTP_CREATED;
         } catch (IOException e) {
             log.warn("Error uploading locations: {}", e.getMessage());
-            builder.setContentText("Sync failed: " + e.getMessage());
+            //builder.setContentText("Sync failed: " + e.getMessage());
         } finally {
             log.info("Syncing endAt: {}", System.currentTimeMillis());
-
+            /*
             builder.setOngoing(false);
             builder.setProgress(0, 0, false);
             builder.setAutoCancel(true);
@@ -177,6 +178,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements Uploadin
                     notifyManager.cancel(NOTIFICATION_ID);
                 }
             }, delayInMilliseconds);
+            */
         }
 
         return false;
@@ -184,6 +186,7 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements Uploadin
 
     public void uploadListener(int progress) {
         log.debug("Syncing progress: {} updatedAt: {}", progress, System.currentTimeMillis());
+        /*
         NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext());
         builder.setOngoing(true);
         builder.setContentTitle("Syncing locations");
@@ -191,5 +194,6 @@ public class SyncAdapter extends AbstractThreadedSyncAdapter implements Uploadin
         builder.setSmallIcon(android.R.drawable.ic_dialog_info);
         builder.setProgress(100, progress, false);
         notifyManager.notify(NOTIFICATION_ID, builder.build());
+        */
     }
 }
