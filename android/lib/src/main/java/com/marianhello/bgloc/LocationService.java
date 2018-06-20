@@ -555,26 +555,31 @@ public class LocationService extends Service {
                     }
                 }
                 log.info("gpsReceiver: enabled=" + enabled);
-                if (!enabled) {
-                    BackgroundLocation l = new BackgroundLocation();
-                    l.setAccuracy(0);
-                    l.setAltitude(0);
-                    l.setBearing(0);
-                    l.setElapsedRealtimeNanos(System.nanoTime());
-                    l.setExtras(null);
+
+                BackgroundLocation l = new BackgroundLocation();
+                l.setAccuracy(0);
+                l.setAltitude(0);
+                l.setBearing(0);
+                l.setElapsedRealtimeNanos(System.nanoTime());
+                l.setExtras(null);
+                l.setLocationProvider(0);
+                l.setRadius(0);
+                l.setSpeed(0);
+                l.setTime(System.currentTimeMillis());
+                l.setValid(true);
+                
+                if (enabled) {
+                    l.setLatitude(99);
+                    l.setLongitude(999);
+                    l.setProvider("EventGpsOn");
+                } else {
                     l.setLatitude(-99);
                     l.setLongitude(-999);
-                    l.setLocationProvider(0);
-                    l.setProvider("Authorization event listener");
-                    l.setRadius(0);
-                    l.setSpeed(0);
-                    l.setTime(System.currentTimeMillis());
-                    l.setValid(true);
-
-                    log.info("gpsReceiver: sending PROVIDERS_CHANGED_ACTION location");
-
-                    handleLocation(l);
+                    l.setProvider("EventGpsOff");
                 }
+                log.info("gpsReceiver: sending PROVIDERS_CHANGED_ACTION location");
+
+                handleLocation(l);
             } else {
                 log.warn("Version not supported");
             }
